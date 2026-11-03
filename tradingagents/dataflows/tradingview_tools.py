@@ -35,11 +35,22 @@ _CHART_TEXT_MAX_LEN = 1000
 
 
 def _strip_nonvisible(s: str) -> str:
-    """Drop all Unicode control/format/private-use/surrogate/unassigned
+    """Neutralize Unicode control/format/private-use/surrogate/unassigned
     characters (general category group 'C') — covers zero-width chars,
     bidi overrides, and the Unicode tag block (U+E0000-U+E007F) used for
-    invisible-payload prompt injection — while keeping plain spaces."""
-    return "".join(c for c in s if unicodedata.category(c)[0] != "C" or c == " ")
+    invisible-payload prompt injection. Whitespace control chars (tab,
+    vertical tab, newline, etc.) are mapped to a plain space rather than
+    deleted outright — deleting them would glue adjacent words together
+    (e.g. "ignore<VT>previous" -> "ignoreprevious") and dodge the blocklist
+    below, which matches on literal whitespace-separated phrases."""
+    out = []
+    for c in s:
+        if unicodedata.category(c)[0] != "C":
+            out.append(c)
+        elif c.isspace():
+            out.append(" ")
+        # else: non-whitespace control/format/private-use char — drop it
+    return "".join(out)
 
 
 def _sanitize_chart_text(text: str) -> str:
