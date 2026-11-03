@@ -31,8 +31,15 @@ _INJECTION_PATTERNS = re.compile(
     r"|final transaction proposal|override|you must (buy|sell|hold))",
     re.IGNORECASE,
 )
-_ZERO_WIDTH_AND_CONTROL = re.compile(r"[​-‏‪-‮﻿\x00-\x08\x0b\x0c\x0e-\x1f]")
 _CHART_TEXT_MAX_LEN = 1000
+
+
+def _strip_nonvisible(s: str) -> str:
+    """Drop all Unicode control/format/private-use/surrogate/unassigned
+    characters (general category group 'C') — covers zero-width chars,
+    bidi overrides, and the Unicode tag block (U+E0000-U+E007F) used for
+    invisible-payload prompt injection — while keeping plain spaces."""
+    return "".join(c for c in s if unicodedata.category(c)[0] != "C" or c == " ")
 
 
 def _sanitize_chart_text(text: str) -> str:
@@ -42,7 +49,7 @@ def _sanitize_chart_text(text: str) -> str:
     if not text:
         return text
     normalized = unicodedata.normalize("NFKC", text)
-    normalized = _ZERO_WIDTH_AND_CONTROL.sub("", normalized)
+    normalized = _strip_nonvisible(normalized)
     normalized = re.sub(r"\s+", " ", normalized).strip()
     truncated = normalized[:_CHART_TEXT_MAX_LEN]
     cleaned = _INJECTION_PATTERNS.sub("[redacted]", truncated)
